@@ -7,4 +7,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="0.16.1" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Using Include="AngleSharp" />
+    <Using Include="AngleSharp.Dom" />
+  </ItemGroup>
 </Project>
