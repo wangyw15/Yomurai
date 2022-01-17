@@ -1,65 +1,86 @@
-﻿using System.Reflection;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using Terminal.Gui;
 using Yomurai;
-using Yomurai.Scraper;
 
-/*var url = "https://www.linovelib.com/novel/2507.html";
-Novel novel = null;
+//Console.WriteLine(new Uri("https://www.baidu.com/a.html").AbsolutePath);
+//Utils.TestMain();
+Application.Init();
+var top = Application.Top;
 
-foreach (var i in scrapers)
+var win = new Window()
 {
-    if (new Uri(url).Host == i.Host)
-    {
-        Console.WriteLine(i.ScraperName);
-        novel = i.GetNovel(url);
-    }
-}
-
-var sw = new StreamWriter("a.json");
-sw.WriteLine(JsonSerializer.Serialize(novel));
-sw.Close();
-NovelHelper.WriteNovel(novel);*/
-
-var url = "https://www.linovelib.com/novel/2507.html";
-var a = new Linovelib();
-var novel = new Novel();
-var introDoc = Utils.GetDocumentFromUrl(url);
-novel.Info = new Novel.NovelInfo()
-{
-    Title = a.GetTitle(introDoc),
-    Author = a.GetAuthor(introDoc),
-    CoverUrl = a.GetCoverUrl(introDoc),
-    Introduction = a.GetIntroduction(introDoc),
-    Tags = a.GetTags(introDoc)
+    X = 0,
+    Y = 1,
+    Width = Dim.Fill(),
+    Height = Dim.Fill()
 };
-var tocDoc = Utils.GetDocumentFromUrl(a.GetTocPageUrl(introDoc));
-var toc = a.GetTableOfContent(tocDoc);
-var numberedToc = new Dictionary<int, KeyValuePair<string, string>>();
-var index = 0;
-foreach (var pair in toc)
-{
-    if (!pair.Value.StartsWith("javascript"))
-    {
-        numberedToc.Add(index++, pair);
-    }
-}
 
-var sections = new Dictionary<int, Novel.Section>();
-Parallel.ForEach(numberedToc, pair =>
-{
-    var paras = a.GetSection(pair.Value.Value);
-    lock (sections)
+var menu = new MenuBar(new MenuBarItem[]
     {
-        sections.Add(pair.Key, new Novel.Section() {Title = pair.Value.Key, Paragraphs = paras});
-        Console.WriteLine($"{sections.Count} / {numberedToc.Count}");
+        new MenuBarItem("_File", new []
+        {
+            new MenuItem("Loaded scrapers", "", () =>
+            {
+                MessageBox.Query("Scrapers", string.Join("\n", (from x in Shared.Scrapers select x.ScraperName)), "OK");
+            }),
+            new MenuItem("_Quit", "", () =>
+            {
+                var result = MessageBox.Query("Warning", "Are you sure to quit?", "Yes", "No");
+                if (result == 0)
+                {
+                    //top.Running = false;
+                    top.RequestStop();
+                }
+            })
+        }),
+        new MenuBarItem("_Novel", new []
+        {
+            new MenuItem("Download from url", "Auto detect scraper", () =>
+            {
+                var button_OK = new Button("OK");
+                var button_Cancel = new Button("Cancel");
+                var dialog = new Dialog("Enter url", 50, 6, button_OK, button_Cancel);
+                var textField_Url = new TextField()
+                {
+                    X = 0,
+                    Y = 0,
+                    Width = Dim.Fill()
+                };
+                var pbar = new ProgressBar()
+                {
+                    X = 0,
+                    Y = 1,
+                    Width = Dim.Fill()
+                };
+                
+                button_OK.Clicked += () =>
+                {
+                    //pbar.Pulse();
+                    var task = new Task(() =>
+                    {
+                        Utils.DownloadNovel(textField_Url.Text.ToString(), pbar);
+                        Application.MainLoop.Invoke(() =>
+                        {
+                            MessageBox.Query("Info", "Done", "OK");
+                        });
+                    });
+                    task.Start();
+                    //MessageBox.Query("Info", "Done", "OK");
+                    //win.Remove(dialog);
+                    //dialog.Dispose();
+                };
+                button_Cancel.Clicked += () =>
+                {
+                    win.Remove(dialog);
+                    dialog.Dispose();
+                };
+                
+                dialog.Add(textField_Url, pbar);
+                
+                win.Add(dialog);
+            })
+        })
     }
-});
+);
+top.Add(menu, win);
 
-var writer = new StreamWriter("a.json");
-writer.WriteLine(JsonSerializer.Serialize(from x in sections.OrderBy(p => p.Key) select x.Value, new JsonSerializerOptions
-{
-    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-}));
-writer.Close();
+Application.Run();
