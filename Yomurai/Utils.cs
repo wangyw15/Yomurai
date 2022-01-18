@@ -5,10 +5,94 @@ using Terminal.Gui;
 
 namespace Yomurai;
 
-public static class Utils
+public static class WebUtils
 {
     private static BrowsingContext _context = new BrowsingContext(Configuration.Default.WithDefaultLoader());
-    
+
+    public static IDocument GetDocumentFromUrl(Url url)
+    {
+        var ret = _context.OpenAsync(url).Result;
+        return ret;
+    }
+
+    public static void DownloadNovel(Url url)
+    {
+        var scraper = (from x in Shared.Scrapers where new Url(x.Host).Host == url.Host select x).First();
+        
+        var novel = new Novel() {Url = url.Href};
+        var introDoc = GetDocumentFromUrl(url);
+        novel.Info = new Novel.NovelInfo()
+        {
+            Title = scraper.GetTitle(introDoc),
+            Author = scraper.GetAuthor(introDoc),
+            CoverUrl = scraper.GetCoverUrl(introDoc).Href,
+            Introduction = scraper.GetIntroduction(introDoc),
+            Tags = scraper.GetTags(introDoc)
+        };
+        var basePath = "yomurai/novels/" + novel.Info.Title;
+        if (!Directory.Exists(basePath))
+        {
+            Directory.CreateDirectory(basePath);
+        }
+        if (!Directory.Exists(Path.Combine(basePath, "sections")))
+        {
+            Directory.CreateDirectory(Path.Combine(basePath, "sections"));
+        }
+        Utils.WriteToJson(novel.Info,Path.Combine(basePath, "metadata.json"));
+        
+        var tocDoc = GetDocumentFromUrl(scraper.GetTocPageUrl(introDoc));
+        var toc = scraper.GetTableOfContent(tocDoc);
+        Utils.WriteToJson(toc, Path.Combine(basePath, "toc.json"));
+        
+        var numberedToc = new Dictionary<int, KeyValuePair<string, Url>>();
+        var index = 0;
+        foreach (var pair in toc)
+        {
+            if (pair.Value != null)
+            {
+                numberedToc.Add(index++, pair);
+            }
+        }
+        
+        var sections = new Dictionary<int, Novel.Section>();
+        Parallel.ForEach(numberedToc, pair =>
+        {
+            try
+            {
+                var paras = new List<Novel.Paragraph>();
+                var result = scraper.GetParagraphs(GetDocumentFromUrl(pair.Value.Value));
+                while (result.Item2 != null)
+                {
+                    paras.AddRange(result.Item1);
+                    result = scraper.GetParagraphs(GetDocumentFromUrl(result.Item2));
+                }
+                lock (sections)
+                {
+                    sections.Add(pair.Key, new Novel.Section() {Title = pair.Value.Key, Paragraphs = paras.ToArray()});
+                }
+                Utils.WriteToJson(paras, Path.Combine(basePath, "sections", pair.Value.Key + ".json"));
+            }
+            catch
+            {
+                /*lock (sections)
+                {
+                    sections.Add(pair.Key,
+                        new Novel.Section()
+                        {
+                            Title = pair.Value.Key,
+                            Paragraphs = new[] {new Novel.Paragraph() {Type = Novel.ParagraphType.Text, Content = Shared.FAILED}}
+                        });
+                    Console.WriteLine($"{sections.Count} / {numberedToc.Count}");
+                }*/
+            }
+        });
+        novel.Sections = (from x in sections.OrderBy(p => p.Key) select x.Value).ToArray();
+        //Utils.ExportNovel(novel);
+    }
+}
+
+public static class Utils
+{
     public static void ExportNovel(Novel novel, string fileName)
     {
         var writer = new StreamWriter(fileName);
@@ -57,21 +141,6 @@ public static class Utils
         }
         return ret.ToArray();
     }
-    
-    public static IDocument GetDocumentFromUrl(string url)
-    {
-        var ret = _context.OpenAsync(url).Result;
-        return ret;
-    }
-
-    public static string JoinUrl(string host, string path, string protocal = "https")
-    {
-        if (path.StartsWith("http"))
-        {
-            return path;
-        }
-        return protocal + "://" + Path.Join(host, path).Replace("\\", "/");
-    }
 
     public static void WriteToJson(object value, string fileName)
     {
@@ -83,89 +152,19 @@ public static class Utils
         writer.Close();
     }
 
-    public static void DownloadNovel(string url, ProgressBar pBar)
-    {
-        var uri = new Uri(url);
-        var scraper = (from x in Shared.Scrapers where x.Host == uri.Host select x).First();
-        
-        var novel = new Novel() {Url = url};
-        var introDoc = Utils.GetDocumentFromUrl(url);
-        novel.Info = new Novel.NovelInfo()
-        {
-            Title = scraper.GetTitle(introDoc),
-            Author = scraper.GetAuthor(introDoc),
-            CoverUrl = scraper.GetCoverUrl(introDoc),
-            Introduction = scraper.GetIntroduction(introDoc),
-            Tags = scraper.GetTags(introDoc)
-        };
-        var basePath = "yomurai/novels/" + novel.Info.Title;
-        if (!Directory.Exists(basePath))
-        {
-            Directory.CreateDirectory(basePath);
-        }
-        if (!Directory.Exists(Path.Combine(basePath, "sections")))
-        {
-            Directory.CreateDirectory(Path.Combine(basePath, "sections"));
-        }
-        WriteToJson(novel.Info,Path.Combine(basePath, "metadata.json"));
-        
-        var tocDoc = Utils.GetDocumentFromUrl(scraper.GetTocPageUrl(introDoc));
-        var toc = scraper.GetTableOfContent(tocDoc);
-        WriteToJson(toc, Path.Combine(basePath, "toc.json"));
-        
-        var numberedToc = new Dictionary<int, KeyValuePair<string, string>>();
-        var index = 0;
-        foreach (var pair in toc)
-        {
-            if (!pair.Value.StartsWith("javascript"))
-            {
-                numberedToc.Add(index++, pair);
-            }
-        }
-        
-        var sections = new Dictionary<int, Novel.Section>();
-        Parallel.ForEach(numberedToc, pair =>
-        {
-            try
-            {
-                var paras = scraper.GetSection(pair.Value.Value);
-                lock (sections)
-                {
-                    sections.Add(pair.Key, new Novel.Section() {Title = pair.Value.Key, Paragraphs = paras});
-                    Application.MainLoop.Invoke(() =>
-                    {
-                        pBar.Fraction = sections.Count / numberedToc.Count;
-                    });
-                }
-                WriteToJson(paras, Path.Combine(basePath, "sections", pair.Value.Key + ".json"));
-            }
-            catch
-            {
-                /*lock (sections)
-                {
-                    sections.Add(pair.Key,
-                        new Novel.Section()
-                        {
-                            Title = pair.Value.Key,
-                            Paragraphs = new[] {new Novel.Paragraph() {Type = Novel.ParagraphType.Text, Content = Shared.FAILED}}
-                        });
-                    Console.WriteLine($"{sections.Count} / {numberedToc.Count}");
-                }*/
-            }
-        });
-        novel.Sections = (from x in sections.OrderBy(p => p.Key) select x.Value).ToArray();
-        //WriteToJson(novel, "a.json");
-        //Utils.ExportNovel(novel);
-    }
-
-    public static void TestMain()
+    public static void Init()
     {
         if (!Directory.Exists("yomurai"))
         {
             Directory.CreateDirectory("yomurai");
         }
-
-        var url = "https://www.linovelib.com/novel/2507.html";
-        //DownloadNovel(url);
+        if (!Directory.Exists("yomurai/novels"))
+        {
+            Directory.CreateDirectory("yomurai/novels");
+        }
+        if (!Directory.Exists("yomurai/export"))
+        {
+            Directory.CreateDirectory("yomurai/export");
+        }
     }
 }

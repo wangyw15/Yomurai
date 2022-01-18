@@ -72,17 +72,53 @@ public abstract class BaseScraper
     /// 网站主页
     /// </summary>
     public abstract string Host { get; }
-    protected IDocument GetDocumentFromUrl(string url) => Utils.GetDocumentFromUrl(JoinUrl(url));
-
-    protected string JoinUrl(string path, string protocal = "https") => Utils.JoinUrl(Host, path, protocal);
-    
-    public abstract string GetTocPageUrl(IDocument document);
-    public abstract KeyValuePair<string, string>[] GetTableOfContent(IDocument document);
-    public abstract Novel.Paragraph[] GetSection(string url);
+    /// <summary>
+    /// 获取目录页Url
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>目录页Url</returns>
+    public abstract Url GetTocPageUrl(IDocument document);
+    /// <summary>
+    /// 获取章节目录及对应的Url
+    /// </summary>
+    /// <param name="document">小说目录页</param>
+    /// <returns>Key为章节名称 Value为对应的Url</returns>
+    public abstract KeyValuePair<string, Url>[] GetTableOfContent(IDocument document);
+    /// <summary>
+    /// 获取章节页面内容
+    /// </summary>
+    /// <param name="document">小说章节内容页</param>
+    /// <returns>章节内容与下一页的Url 空则已经是最后一页</returns>
+    public abstract (Novel.Paragraph[], Url) GetParagraphs(IDocument document);
+    /// <summary>
+    /// 获取小说标题
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>标题</returns>
     public abstract string GetTitle(IDocument document);
+    /// <summary>
+    /// 获取小说作者
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>作者</returns>
     public abstract string GetAuthor(IDocument document);
+    /// <summary>
+    /// 获取小说标签
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>标签</returns>
     public abstract string[] GetTags(IDocument document);
+    /// <summary>
+    /// 获取小说简介
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>简介</returns>
     public abstract string GetIntroduction(IDocument document);
-    public abstract string GetCoverUrl(IDocument document);
+    /// <summary>
+    /// 获取小说封面图Url
+    /// </summary>
+    /// <param name="document">小说详情页</param>
+    /// <returns>封面图Url</returns>
+    public abstract Url GetCoverUrl(IDocument document);
     
 }
