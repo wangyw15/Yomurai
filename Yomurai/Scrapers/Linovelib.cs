@@ -2,7 +2,7 @@
 
 public class Linovelib : BaseScraper
 {
-    public override string ScraperName { get; } = "linovelib";
+    public override string ScraperName { get; } = "哩哔轻小说";
     public override string Host { get; } = "https://www.linovelib.com";
 
     public override Url GetTocPageUrl(IDocument document) => document.HyperReference(document.QuerySelector(

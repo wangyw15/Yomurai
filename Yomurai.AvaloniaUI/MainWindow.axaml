@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Yomurai.AvaloniaUI.MainWindow"
+        Title="Yomurai"
+        
+        TransparencyLevelHint="Blur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True">
+        
+        <Grid>
+                <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                        <ExperimentalAcrylicBorder.Material>
+                                <ExperimentalAcrylicMaterial
+                                        BackgroundSource="Digger"
+                                        TintColor="Black"
+                                        TintOpacity="0.5"
+                                        MaterialOpacity="0.5" />
+                        </ExperimentalAcrylicBorder.Material>
+                </ExperimentalAcrylicBorder>
+                
+                <TabControl Margin="0, 30, 0, 0">
+                        <TabItem Header="已加载的规则" VerticalContentAlignment="Center">
+                                <StackPanel>
+                                        <ListBox x:Name="ScraperListBox" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                </StackPanel>
+                        </TabItem>
+                        <TabItem Header="下载小说" VerticalContentAlignment="Center">
+                                <StackPanel Orientation="Vertical">
+                                        <Label>网址</Label>
+                                        <TextBox x:Name="UrlTextBox" TextAlignment="Left"/>
+                                        <Button Click="DownloadNovel_Click">确定</Button>
+                                        <ProgressBar x:Name="DownloadPBar" Minimum="0"/>
+                                </StackPanel>
+                        </TabItem>
+                        <TabItem Header="已下载列表" VerticalContentAlignment="Center">
+                                <StackPanel>
+                                        <ListBox x:Name="DownloadedListBox"/>
+                                </StackPanel>
+                        </TabItem>
+                </TabControl>
+        </Grid>
+</Window>
